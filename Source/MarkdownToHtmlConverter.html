@@ -1,0 +1,565 @@
+<html>
+<body>
+
+<div id="divUi">
+
+	<h3>Markdown to HTML Converter</h3>
+
+	<p>
+		Enter text formatted as Markdown and click the
+		"Convert Markdown to HTML" button
+		to convert that Markdown to HTML.
+	</p>
+
+	<p>
+		Note that this converter interprets a partial and customized
+		dialect of Markdown, in which "*" indicates boldface,
+		"_" indicates italics, block quotes are indicated by leading tabs,
+		and hard line breaks are indicated by a trailing space.
+		Other features may not yet be supported at all.
+	</p>
+
+	<div>
+		<label>Markdown to Convert:</label>
+		<button onclick="buttonLoadDemoMarkdown_Clicked()">Load Demo</button>
+		<br />
+		<textarea id="textareaMarkdownToConvert" cols="40" rows="10"></textarea>
+	</div>
+
+	<button
+		onclick="buttonConvertMarkdownToHtml_Clicked()"
+	>
+		Convert Markdown to HTML
+	</button>
+
+	<div>
+		<label>HTML Converted:</label>
+		<br />
+		<textarea id="textareaHtmlConverted" cols="40" rows="10"></textarea>
+	</div>
+
+	<button onclick="buttonRenderHtml_Clicked()">Render HTML</button>
+
+</div>
+
+<script type="text/javascript">
+
+// UI event handlers.
+
+function buttonConvertMarkdownToHtml_Clicked()
+{
+	var d = document;
+
+	var textareaMarkdownToConvert =
+		d.getElementById("textareaMarkdownToConvert");
+	var markdownToConvert = textareaMarkdownToConvert.value;
+
+	var converter = new MarkdownToHtmlConverter();
+	var htmlConverted =
+		converter.markdownConvertToHtml(markdownToConvert);
+
+	var textareaHtmlConverted =
+		d.getElementById("textareaHtmlConverted");
+	textareaHtmlConverted.value = htmlConverted;
+}
+
+function buttonRenderHtml_Clicked()
+{
+	var d = document;
+
+	var textareaHtmlConverted =
+		d.getElementById("textareaHtmlConverted");
+	var htmlToRender = textareaHtmlConverted.value;
+
+	document.write(htmlToRender);
+}
+
+function buttonLoadDemoMarkdown_Clicked()
+{
+	var markdownTextDemo =
+		new MarkdownToHtmlConverter().demoMarkdownGet();
+	var d = document;
+	var textareaMarkdownToConvert =
+		d.getElementById("textareaMarkdownToConvert");
+	textareaMarkdownToConvert.value = markdownTextDemo;
+}
+
+// Classes.
+
+class MarkdownToHtmlConverter
+{
+	markdownConvertToHtml(markdownToConvert)
+	{
+		var newline = "\n";
+		var twoNewlines = newline + newline;
+
+		var blockDelimiter = newline + newline;
+		var blocksToConvert =
+			markdownToConvert.split(twoNewlines);
+
+		var blocksConverted = [];
+
+		for (var b = 0; b < blocksToConvert.length; b++)
+		{
+			var blockToConvert = blocksToConvert[b];
+			var blockConverted =
+				this.markdownConvertToHtml_Block(blockToConvert);
+			blocksConverted.push(blockConverted);
+		}
+
+		var htmlConverted =
+			"<html>\n<body>\n\n"
+			+ blocksConverted.join(twoNewlines)
+			+ "\n\n</body>\n</html>";
+
+		return htmlConverted;
+	}
+
+	markdownConvertToHtml_Block(block)
+	{
+		var blockAsHtml = "";
+
+		var newline = "\n"
+		var blockLines = block.split(newline);
+		if (blockLines.length > 0)
+		{
+			var linesConverted = [];
+
+			linesConverted.push
+			(
+				...blockLines.map
+				(
+					line =>
+						this.markdownConvertToHtml_Block_Line(line)
+				)
+			);
+
+			var blockLineFirst = blockLines[0];
+
+			var charForUnnumberedList = "-";
+			var isBlockAnUnnumberedList
+				= blockLineFirst.trimStart().startsWith(charForUnnumberedList);
+
+			var charForNumberedList = "#";
+			var isBlockANumberedList
+				= blockLineFirst.trimStart().startsWith(charForNumberedList);
+
+			var isBlockAList =
+				isBlockAnUnnumberedList || isBlockANumberedList;
+
+			var charForBlockQuote = "\t";
+			var isBlockABlockQuote
+				= blockLineFirst.startsWith(charForBlockQuote);
+
+			var blockLineLast =
+				blockLines[blockLines.length - 1];
+
+			var charForHeading = "=";
+			var isBlockAHeading = 
+				(blockLineLast.split(charForHeading).join("").length == 0);
+
+			var charForSubheading = "-";
+			var isBlockASubheading = 
+				(blockLineLast.split(charForSubheading).join("").length == 0);
+
+			if (isBlockAList)
+			{
+				var charForListItem =
+				(
+					isBlockAnUnnumberedList
+					? charForUnnumberedList
+					: charForNumberedList
+				);
+
+				for (var i = 0; i < linesConverted.length; i++)
+				{
+					var line = linesConverted[i];
+					var lineTrimmed = line.trim();
+					if (lineTrimmed.startsWith(charForListItem))
+					{
+						if (i > 0)
+						{
+							linesConverted[i - 1] += "</li>";
+						}
+						linesConverted[i] =
+							"<li>" + lineTrimmed.substr(charForListItem.length);
+					}
+				}
+				linesConverted[linesConverted.length - 1] += "</li>";
+
+				var tagName =
+					(isBlockAnUnnumberedList ? "ul" : "ol");
+
+				linesConverted = linesConverted.map(x => "\t" + x);
+				linesConverted.splice(0, 0, "<" + tagName + ">");
+				linesConverted.push("</" + tagName + ">");
+			}
+			else if (isBlockABlockQuote)
+			{
+				var tagName = "blockQuote";
+				linesConverted.splice(0, 0, "<" + tagName + ">");
+				linesConverted.push("</" + tagName + ">");
+			}
+			else if (isBlockAHeading)
+			{
+				var tagName = "h1";
+				linesConverted.splice(linesConverted.length - 1, 1);
+				linesConverted[0] = "<" + tagName + ">" + linesConverted[0];
+				linesConverted[linesConverted.length - 1] =
+					linesConverted[linesConverted.length - 1] + "</" + tagName + ">";
+			}
+			else if (isBlockASubheading)
+			{
+				var tagName = "h2";
+				linesConverted.splice(linesConverted.length - 1, 1);
+				linesConverted[0] = "<" + tagName + ">" + linesConverted[0];
+				linesConverted[linesConverted.length - 1] =
+					linesConverted[linesConverted.length - 1] + "</" + tagName + ">";
+			}
+			else
+			{
+				linesConverted = linesConverted.map(x => "\t" + x);
+				var tagName = "p";
+				linesConverted.splice(0, 0, "<" + tagName + ">");
+				linesConverted.push("</" + tagName + ">");
+			}
+
+			blockAsHtml = linesConverted.join(newline);
+		}
+
+		return blockAsHtml;
+	}
+
+	markdownConvertToHtml_Block_Line(lineToConvert)
+	{
+		var lineConverted = lineToConvert;
+
+		var charsForStyles = [ "*", "_" ];
+		var tagsForStyles = [ "strong", "em" ];
+
+		for (var s = 0; s < charsForStyles.length; s++)
+		{
+			var charForStyle = charsForStyles[s];
+			var tagForStyle = tagsForStyles[s];
+
+			var lineSplitOnCharForStyle =
+				lineConverted.split(charForStyle);
+
+			if (lineSplitOnCharForStyle.length > 1)
+			{
+				lineConverted = "";
+				for (var i = 0; i < lineSplitOnCharForStyle.length; i++)
+				{
+					var part = lineSplitOnCharForStyle[i];
+					if (i % 2 == 1)
+					{
+						lineConverted +=
+							"<" + tagForStyle + ">"
+							+ part
+							+ "</" + tagForStyle + ">";
+					}
+					else
+					{
+						lineConverted += part;
+					}
+				}
+			}
+		}
+
+		if (lineConverted.endsWith(" ") )
+		{
+			lineConverted += "<br />";
+		}
+
+		return lineConverted;
+	}
+
+	// Demo.
+
+	demoHtmlGet()
+	{
+		var lines =
+		[
+			"<html>",
+			"<body>",
+			"",
+			"<h1>Markdown to HTML Converter</h1>",
+			"",
+			"<p>",
+			"\tThis is a test of the Markdown-to-HTML converter.",
+			"</p>",
+			"",
+			"<h2>",
+			"Some Tests</h2>",
+			"",
+			"<p>",
+			"\tThis is a single-line paragraph.",
+			"</p>",
+			"",
+			"<p>",
+			"\tThis is a multiple-line paragraph.",
+			"\tThis paragraph has more than one line.",
+			"\tIndeed, it has multiple lines.",
+			"</p>",
+			"",
+			"<p>",
+			"\tThis is just to say <br />",
+			"\tI have added <br />",
+			"\tspaces at the ends <br />",
+			"\tof these lines <br />",
+			"\tto force them to be <br />",
+			"\tinterpreted as newlines. <br />",
+			"\tForgive me:",
+			"\tThis sentence",
+			"\tdoes not have trailing spaces",
+			"\tand should therefore",
+			"\tnot have hard newlines.",
+			"</p>",
+			"",
+			"<p>",
+			"\tBelow is a test of unnumbered lists:",
+			"</p>",
+			"",
+			"<ul>",
+			"\t<li> alpha</li>",
+			"\t<li> beta</li>",
+			"\t<li> gamma</li>",
+			"</ul>",
+			"",
+			"<p>",
+			"\tBelow is a test of numbered lists:",
+			"</p>",
+			"",
+			"<ol>",
+			"\t<li> one</li>",
+			"\t<li> two</li>",
+			"\t<li> three</li>",
+			"</ol>",
+			"",
+			"<p>",
+			"\tNow let's test some text styles.",
+			"\tThe last word of this sentence should be <strong>bold</strong>.",
+			"\t<strong>This entire sentence should be bold.</strong>",
+			"\tThe last word of this sentence should be <em>italicized</em>.",
+			"\t<em>This entire sentence should be italicized.</em>",
+			"</p>",
+			"",
+			"<p>",
+			"\tBelow is a block quote:",
+			"</p>",
+			"",
+			"<blockQuote>",
+			"\tWhen in the course of human events",
+			"\tit becomes necessary for one people",
+			"\tto dissolve the political bands",
+			"\twhich have connected them with another...",
+			"</blockQuote>"
+		];
+
+		var newline = "\n";
+		var text = lines.join(newline);
+
+		return text;
+
+	}
+
+	demoMarkdownGet()
+	{
+		var lines = 
+		[
+			"Markdown to HTML Converter",
+			"==========================",
+			"",
+			"This is a test of the Markdown-to-HTML converter.",
+			"",
+			"",
+			"Some Tests",
+			"----------",
+			"",
+			"This is a single-line paragraph.",
+			"",
+			"This is a multiple-line paragraph.",
+			"This paragraph has more than one line.",
+			"Indeed, it has multiple lines.",
+			"",
+			"This is just to say ",
+			"I have added ",
+			"spaces at the ends ",
+			"of these lines ",
+			"to force them to be ",
+			"interpreted as newlines. ",
+			"Forgive me:",
+			"This sentence",
+			"does not have trailing spaces",
+			"and should therefore",
+			"not have hard newlines.",
+			"",
+			"Below is a test of unnumbered lists:",
+			"",
+			"- alpha",
+			"- beta",
+			"- gamma",
+			"",
+			"Below is a test of numbered lists:",
+			"",
+			"# one",
+			"# two",
+			"# three",
+			"",
+			"Now let's test some text styles.",
+			"The last word of this sentence should be *bold*.",
+			"*This entire sentence should be bold.*",
+			"The last word of this sentence should be _italicized_.",
+			"_This entire sentence should be italicized._",
+			"",
+			"Below is a block quote:",
+			"",
+			"\tWhen in the course of human events",
+			"\tit becomes necessary for one people",
+			"\tto dissolve the political bands",
+			"\twhich have connected them with another..."
+		];
+
+		var newline = "\n";
+		var text = lines.join(newline);
+
+		return text;
+	}
+}
+
+// Tests.
+
+class Assert
+{
+	static areEqual(valueExpected, valueActual)
+	{
+		if (valueActual != valueExpected)
+		{
+			var message =
+				"Expected: '" + valueExpected
+				+ "', but was: '" + valueActual + "'.";
+			throw new Error(message);
+		}
+	}
+
+	static areStringsEqual(stringExpected, stringActual)
+	{
+		if (stringActual != stringExpected)
+		{
+			var firstPositionWhereStringsDiffer;
+			for (var i = 0; i < stringActual.length; i++)
+			{
+				if (stringActual[i] != stringExpected[i])
+				{
+					firstPositionWhereStringsDiffer = i;
+					break;
+				}
+			}
+
+			var message =
+				"Expected: equal strings, but strings differ starting at position: " + firstPositionWhereStringsDiffer;
+
+			throw new Error(message);
+		}
+	}
+
+	static isFalse(booleanToTest)
+	{
+		if (booleanToTest != false)
+		{
+			throw new Error("Expected: false, but was: not false.");
+		}
+	}
+
+	static isTrue(booleanToTest)
+	{
+		if (booleanToTest != true)
+		{
+			throw new Error("Expected: true, but was: not true.");
+		}
+	}
+}
+
+class Test
+{
+	constructor(name, run)
+	{
+		this.name = name;
+		this._run = run;
+	}
+
+	run(fixture)
+	{
+		try
+		{
+			this._run(fixture);
+		}
+		catch (ex)
+		{
+			var message =
+				"An error occurred while running test '"
+				+ this.name + "': "
+				+ ex.message + ".";
+
+			document.write(message);
+		}
+	}
+}
+
+class TestFixture
+{
+	constructor(name, tests)
+	{
+		this.name = name;
+		this.tests = tests;
+	}
+
+	run()
+	{
+		this.tests.forEach(x => x.run(this) );
+	}
+}
+
+class TestSuite
+{
+	constructor(testFixtures)
+	{
+		this.testFixtures = testFixtures;
+	}
+
+	run()
+	{
+		this.testFixtures.forEach(x => x.run() );
+	}
+}
+
+var testFixtureAll = new TestFixture
+(
+	"TestFixtureAll",
+	[
+		new Test
+		(
+			"ConvertDemoMarkdownToHtml",
+			(fixture) =>
+			{
+				var converter = new MarkdownToHtmlConverter();
+				var markdownToConvert =
+					converter.demoMarkdownGet();
+				var htmlConverted =
+					converter.markdownConvertToHtml(markdownToConvert);
+				var htmlExpected =
+					converter.demoHtmlGet();
+				Assert.areStringsEqual(htmlExpected, htmlConverted);
+			}
+		)
+	]
+);
+
+var testSuite = new TestSuite([testFixtureAll]);
+
+testSuite.run();
+
+</script>
+
+</body>
+</html>
