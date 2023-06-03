@@ -353,7 +353,10 @@ class MarkdownToHtmlConverter
 			"\tit becomes necessary for one people",
 			"\tto dissolve the political bands",
 			"\twhich have connected them with another...",
-			"</blockQuote>"
+			"</blockQuote>",
+			"",
+			"</body>",
+			"</html>"
 		];
 
 		var newline = "\n";
@@ -457,7 +460,8 @@ class Assert
 			}
 
 			var message =
-				"Expected: equal strings, but strings differ starting at position: " + firstPositionWhereStringsDiffer;
+				"Expected: equal strings, but strings differ starting at position: "
+				+ firstPositionWhereStringsDiffer;
 
 			throw new Error(message);
 		}
